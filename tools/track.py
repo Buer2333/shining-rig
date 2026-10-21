@@ -117,7 +117,7 @@ def cmd_extract(a):
     ok = [k for k in raw if k is not None]
     if not ok:
         raise SystemExit("no person detected in any frame")
-    scale = float(np.median([torso(k) for k in ok])) / torso(rest)
+    scale = float(np.median([torso(k) for k in ok]) / torso(rest))  # NumPy 2 keeps float32 for float / float32: json can't take it
     ground = float(np.max([max(k[15][1], k[16][1]) for k in ok]))
     poses = [pose_of(k, rest, kmap, scale, ground, spec["scale"]) if k is not None else None for k in raw]
     lift_ch = [c for c, e in kmap.items() if e["kind"] == "lift"]
