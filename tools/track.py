@@ -153,9 +153,11 @@ def cmd_extract(a):
 
 
 def cmd_migrate(a):
+    gen = stamp_or_exit(not a.no_stamp)
     old = json.load(open(a.legacy))
     json.dump({"spec_version": 1, "fps": old["fps"], "channels": old["keys"], "frames": old["frames"],
-               "calib": {"migrated_from": "POC track", "detect": old.get("detect")}, "generator": "migrated-from-legacy"},
+               "calib": {"migrated_from": "POC track (frames copied unchanged)", "legacy_sha256": hashlib.sha256(open(a.legacy, "rb").read()).hexdigest(),
+                         "detect": old.get("detect")}, "generator": gen},
               open(a.out, "w"), indent=0)
     print("migrated", len(old["frames"]), "frames")
 
@@ -167,7 +169,7 @@ def main():
     e = sub.add_parser("extract"); e.add_argument("rig"); e.add_argument("frames"); e.add_argument("out")
     e.add_argument("--fps-in", type=float, default=24); e.add_argument("--fps-out", type=float, default=30)
     e.add_argument("--keep-paths", action="store_true"); e.add_argument("--no-stamp", action="store_true")
-    g = sub.add_parser("migrate"); g.add_argument("legacy"); g.add_argument("out")
+    g = sub.add_parser("migrate"); g.add_argument("legacy"); g.add_argument("out"); g.add_argument("--no-stamp", action="store_true")
     a = ap.parse_args()
     {"rest": cmd_rest, "extract": cmd_extract, "migrate": cmd_migrate}[a.cmd](a)
 
