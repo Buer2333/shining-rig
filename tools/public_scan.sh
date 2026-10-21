@@ -24,7 +24,7 @@ PATTERNS='(/Users/|/home/[a-z]|C:\\Users|\.local\b|\b(sk|pk|rk)-[A-Za-z0-9]{16,}
 while IFS= read -r l; do
   case "$l" in *noreply*|*example.com*) continue;; esac
   hit "added line: ${l:0:160}"
-done < <(git log -p --format='' ${RANGE} | grep -E '^\+' | grep -v -E '^\+\+\+ ' | grep -E "${PATTERNS}" || true)
+done < <(git log -p --format='' ${RANGE} -- . ':!tools/public_scan.sh' | grep -E '^\+' | grep -v -E '^\+\+\+ ' | grep -E "${PATTERNS}" || true)  # the scanner's own pattern list would match itself; it is still covered by the object checks below
 
 ALLOW='\.(ts|tsx|json|md|py|txt|lock|sh|yml|yaml)$|(^|/)(LICENSE|\.gitignore|package-lock\.json)$'
 while read -r obj path; do
