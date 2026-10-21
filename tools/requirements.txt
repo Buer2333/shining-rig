@@ -1,0 +1,9 @@
+# Python tools (cut / lint / migrate / track). Pinned to the versions the reference rigs were cut with:
+# PNG bytes depend on the Pillow + zlib build, so re-cutting an existing character must use these.
+# Exact transitive pins: requirements.lock (pip freeze of a clean venv on Python 3.9).
+pillow==11.3.0
+numpy==2.0.2
+rtmlib==0.0.15
+onnxruntime==1.19.2
+opencv-python-headless==5.0.0.93
+pytest==8.3.5

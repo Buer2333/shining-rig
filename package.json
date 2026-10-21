@@ -1,0 +1,32 @@
+{
+  "name": "shining-rig",
+  "version": "0.1.0",
+  "private": true,
+  "description": "2D character rig for Remotion: cutout parts + mesh-skinned limbs, keyframe clips and pose tracks extracted from video.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@react-three/fiber": "9.8.1",
+    "@remotion/three": "4.0.440",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "4.0.440",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@react-three/fiber": "9.8.1",
+    "@remotion/three": "4.0.440",
+    "@types/react": "19.3.0",
+    "@types/three": "0.186.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.440",
+    "three": "0.186.1",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}

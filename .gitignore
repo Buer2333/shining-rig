@@ -1,0 +1,18 @@
+node_modules/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+# Character art never goes in this repo: rigs are data, images stay with the project that owns the character.
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.psd
+*.gif
+*.mp4
+*.mov
+*.wav
+*.onnx
+*.zip
+out/

@@ -1,0 +1,16 @@
+{
+  "name": "jump",
+  "notes": "Crouch, push off, frog-tuck at the top, land with squash, rebound, then raise one fist. Times in seconds; missing channels use the rig defaults.",
+  "keys": [
+    { "t": 0.0, "pose": { "armL": -62, "armR": 62, "foreL": -8, "foreR": 8 } },
+    { "t": 0.45, "pose": { "armL": -62, "armR": 62, "foreL": -8, "foreR": 8 } },
+    { "t": 0.85, "pose": { "lift": -0.06, "squash": 0.95, "thighL": 16, "thighR": -16, "shinL": -20, "shinR": 20, "tsL": 0.8, "tsR": 0.8, "ssL": 0.9, "ssR": 0.9, "armL": -70, "armR": 70, "foreL": -12, "foreR": 12, "head": 0 } },
+    { "t": 1.0, "pose": { "lift": 0.05, "squash": 1.05, "armL": 25, "armR": -25, "foreL": 10, "foreR": -10 } },
+    { "t": 1.3, "pose": { "lift": 0.3, "thighL": 28, "thighR": -28, "shinL": -40, "shinR": 40, "tsL": 0.82, "tsR": 0.82, "ssL": 0.88, "ssR": 0.88, "armL": 48, "armR": -48, "foreL": 12, "foreR": -12, "head": 0 } },
+    { "t": 1.55, "pose": { "lift": 0.1, "thighL": 6, "thighR": -6, "armL": 10, "armR": -10 } },
+    { "t": 1.68, "pose": { "lift": -0.075, "squash": 0.9, "thighL": 20, "thighR": -20, "shinL": -26, "shinR": 26, "tsL": 0.76, "tsR": 0.76, "ssL": 0.88, "ssR": 0.88, "armL": -30, "armR": 30, "foreL": -20, "foreR": 20 } },
+    { "t": 2.0, "pose": { "lift": 0.012, "squash": 1.03, "armL": -50, "armR": 50 } },
+    { "t": 2.35, "pose": { "armL": -62, "armR": -38, "foreL": -8, "foreR": -62, "head": -4 } },
+    { "t": 4.0, "pose": { "armL": -62, "armR": -38, "foreL": -8, "foreR": -62, "head": -4 } }
+  ]
+}
