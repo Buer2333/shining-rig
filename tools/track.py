@@ -80,6 +80,72 @@ def torso(kp):
     return np.linalg.norm(pt(kp, [5, 6]) - pt(kp, [11, 12]))
 
 
+def detect_contact(ank_y, ground, h_th, v_th, min_run):
+    """Ground-contact flags per frame from the lowest ankle's y (video px, y down): within h_th of the ground line and
+    moving less than v_th px/frame (central difference), for at least min_run consecutive frames."""
+    y = np.asarray(ank_y, float)
+    v = np.abs(np.gradient(y)) if len(y) > 1 else np.zeros_like(y)
+    c = (y >= ground - h_th) & (v < v_th)
+    out = c.copy()
+    i = 0
+    while i < len(c):  # drop runs shorter than min_run
+        if c[i]:
+            j = i
+            while j < len(c) and c[j]:
+                j += 1
+            if j - i < min_run:
+                out[i:j] = False
+            i = j
+        else:
+            i += 1
+    return out
+
+
+def joint_fk(spec, pose, chain):
+    """Where the last joint of chain (rest pivot) lands, through the joints before it: CSS rotate(deg) scaleY(sy) about
+    each pivot, innermost first (same as RigFigure). chain e.g. [hipL, kneeL, ankleL]; source px."""
+    rot, scl = {}, {}
+    for ch, c in spec["channels"].items():
+        if c["kind"] == "rotate":
+            rot.setdefault(c["joint"], ch)
+        elif c["kind"] == "scaleY":
+            scl.setdefault(c["joint"], ch)
+    p = np.array(spec["joints"][chain[-1]]["pivot"], float)
+    for j in reversed(chain[:-1]):
+        cx, cy = spec["joints"][j]["pivot"]
+        deg = pose.get(rot.get(j), 0.0) if rot.get(j) else 0.0
+        sy = pose.get(scl.get(j), 1.0) if scl.get(j) else 1.0
+        dx, dy = p[0] - cx, (p[1] - cy) * sy
+        r = math.radians(deg)
+        p = np.array([cx + dx * math.cos(r) - dy * math.sin(r), cy + dx * math.sin(r) + dy * math.cos(r)])
+    return p
+
+
+def contact_lift(spec, frames, contact, chains, lift_ch, ramp):
+    """On contact frames set lift so the lowest chain end sits back on its rest height (feet on the ground); the
+    correction fades out linearly over `ramp` frames into the neighbouring airborne frames, which are otherwise kept.
+    Returns the new lift values."""
+    H = spec["scale"]["body_h_px"]
+    orig = np.array([f[lift_ch] for f in frames], float)
+    corr = np.full(len(frames), np.nan)
+    for i, f in enumerate(frames):
+        if contact[i]:
+            drop = max(joint_fk(spec, f, ch)[1] - spec["joints"][ch[-1]]["pivot"][1] for ch in chains)  # >0: feet below rest
+            corr[i] = drop / H - orig[i]
+    idx = np.flatnonzero(~np.isnan(corr))
+    if not len(idx):
+        return orig
+    out = orig.copy()
+    for i in range(len(frames)):
+        if contact[i]:
+            out[i] += corr[i]
+            continue
+        k = idx[np.argmin(np.abs(idx - i))]  # nearest contact frame
+        w = max(0.0, 1 - abs(k - i) / ramp) if ramp else 0.0
+        out[i] += corr[k] * w
+    return out
+
+
 def cmd_rest(a):
     import cv2
     spec = json.load(open(a.rig))
@@ -141,8 +207,25 @@ def cmd_extract(a):
     n_out = int(t_in[-1] * a.fps_out) + 1
     t_out = np.arange(n_out) / a.fps_out
     frames = [{k: round(float(np.interp(t, t_in, sm[:, j])), 3) for j, k in enumerate(keys)} for t in t_out]
+    contact_out = None
+    cc = next((e.get("contact") for e in kmap.values() if e["kind"] == "lift" and e.get("contact")), None)
+    if cc:  # ground contact: detected on the video, applied through the rig's own leg chains
+        body_px = scale * spec["scale"]["body_h_px"]
+        ank = np.array([max(k[15][1], k[16][1]) if k is not None else np.nan for k in raw])
+        miss = np.isnan(ank)
+        if miss.any():
+            ank[miss] = np.interp(np.flatnonzero(miss), np.flatnonzero(~miss), ank[~miss])
+        th = {"h_px": round(cc.get("h_frac", 0.04) * body_px, 2), "v_px_per_frame": round(cc.get("v_frac", 0.006) * body_px, 2), "min_run": cc.get("min_run", 3)}
+        c_in = detect_contact(ank, ground, th["h_px"], th["v_px_per_frame"], th["min_run"])
+        contact_out = [bool(c_in[min(len(c_in) - 1, int(round(t * a.fps_in)))]) for t in t_out]
+        lift_ch = lift_ch[0]
+        new = contact_lift(spec, frames, contact_out, cc["chains"], lift_ch, cc.get("ramp", 4))
+        for f, v in zip(frames, new):
+            f[lift_ch] = round(float(v), 4)
+        contact_out = {"frames": [int(x) for x in contact_out], "method": "lowest ankle within h_px of the clip's lowest ankle and slower than v_px_per_frame for >= min_run input frames; lift re-solved by leg FK on contact frames, ramped out over `ramp` frames",
+                       "thresholds": {**th, "ramp": cc.get("ramp", 4)}}
     json.dump({
-        "spec_version": 1, "fps": a.fps_out, "channels": keys, "frames": frames,
+        "spec_version": 1, "fps": a.fps_out, "channels": keys, "frames": frames, **({"contact": contact_out} if contact_out else {}),
         "calib": {"scale_video_per_source": round(scale, 5), "ground_y_video": round(ground, 2), "lift_zero": "first frame",
                   "detect": {"frames": len(files), "missing": sum(1 for k in raw if k is None), "mean_conf": round(float(np.mean(conf)), 3)},
                   "source_frames": os.path.abspath(a.frames) if a.keep_paths else os.path.basename(os.path.normpath(a.frames)),

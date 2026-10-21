@@ -140,6 +140,38 @@ def test_cut_alpha_background_matches_flood(tmp_path):
         C.cut(cfg, str(tmp_path), str(tmp_path / "bad"), stamp=False)
 
 
+def test_detect_contact_jump_curve():
+    # stand 10 frames, jump (parabola) 12 frames, stand 10 frames; a 2-frame dip back to the ground mid-air is too short
+    y = [500.0] * 10 + [500 - 120 * (1 - ((i - 5.5) / 5.5) ** 2) for i in range(12)] + [500.0] * 10
+    c = track.detect_contact(y, 500.0, h_th=6, v_th=4, min_run=3)
+    assert c[:9].all() and c[-9:].all()
+    assert not c[12:20].any()  # airborne
+    y2 = [500.0] * 5 + [400.0, 499.0, 499.0, 400.0] + [500.0] * 5
+    assert not track.detect_contact(y2, 500.0, 6, 200, 3)[6:8].any()  # run of 2 dropped
+
+
+def leg_spec():
+    return {"scale": {"body_h_px": 300.0, "ground_y": 500.0},
+            "joints": {"hipL": {"pivot": [100, 300], "parent": None}, "kneeL": {"pivot": [100, 400], "parent": "hipL"},
+                       "ankleL": {"pivot": [100, 490], "parent": "kneeL"}},
+            "channels": {"thighL": {"kind": "rotate", "joint": "hipL", "default": 0}, "shinL": {"kind": "rotate", "joint": "kneeL", "default": 0},
+                         "tsL": {"kind": "scaleY", "joint": "hipL", "default": 1}, "lift": {"kind": "body_translate", "default": 0}}}
+
+
+def test_contact_lift_plants_feet_and_keeps_air():
+    spec, chain = leg_spec(), ["hipL", "kneeL", "ankleL"]
+    # 6 contact frames with bent / stretched legs and a wrong lift, then 12 airborne frames
+    frames = [{"thighL": 30, "shinL": -60, "tsL": 1.0, "lift": 0.05}, {"thighL": 10, "shinL": 0, "tsL": 1.1, "lift": 0.0}] * 3
+    frames += [{"thighL": 0, "shinL": 0, "tsL": 1.0, "lift": 0.3} for _ in range(12)]
+    contact = [True] * 6 + [False] * 12
+    new = track.contact_lift(spec, frames, contact, [chain], "lift", ramp=4)
+    for i in range(6):  # foot back on its rest height within 1 px
+        foot = track.joint_fk(spec, frames[i], chain)[1] - new[i] * spec["scale"]["body_h_px"]
+        assert abs(foot - 490) <= 1, (i, foot)
+    assert new[0] < 0  # bent knees: the body comes down to the ground instead of floating
+    assert all(new[i] == 0.3 for i in range(6 + 4, 18))  # airborne beyond the ramp: untouched
+
+
 def run(*args):
     return subprocess.run([PY, *args], capture_output=True, text=True)
 

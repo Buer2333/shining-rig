@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildLimbMesh, jointAbout, rotateAbout, skinLimb, smoothstep } from "../src/core/mesh";
 import { Clip, easeInOutCubic, sampleClip, trackPose, Track } from "../src/core/pose";
 import { channelsOf, defaultPose, inFront, SpecError, validateSpec } from "../src/core/spec";
+import { spring, withSecondary } from "../src/core/secondary";
 import JUMP from "../src/actions/jump.json";
 import { toySpec } from "./fixtures";
 
@@ -131,5 +132,35 @@ describe("mesh skinning", () => {
     skinLimb(L, s.joints.shoulderL.pivot, s.joints.elbowL.pivot, 30, 10, out, { body: { y: 260, sy: 0.8 } });
     expect(xy[k][0]).toBeCloseTo(L.rest[k][0], 9);
     expect(xy[k][1]).toBeCloseTo(-(260 + (L.rest[k][1] - 260) * 0.8), 9);
+  });
+});
+
+describe("secondary motion", () => {
+  const jump = (): Track => {
+    // stand, rise, fall, land hard, stand
+    const lift = [0, 0, 0, 0, 0.04, 0.09, 0.12, 0.13, 0.12, 0.09, 0.04, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    return { spec_version: 1, fps: 30, channels: ["lift", "torso", "head"], frames: lift.map((l, i) => ({ lift: l, torso: i >= 4 && i < 8 ? 10 : 0, head: 0 })) };
+  };
+  const o = { squash: { channel: "squash", lift: "lift", kv: 2.5, ka: 4, range: [0.85, 1.12] as [number, number], stiffness: 0.35, damping: 0.5 },
+    lag: [{ channel: "head", driver: "torso", stiffness: 0.3, damping: 0.5 }] };
+
+  it("a still track stays still", () => {
+    const t: Track = { spec_version: 1, fps: 30, channels: ["lift", "torso", "head"], frames: Array.from({ length: 10 }, () => ({ lift: 0, torso: 3, head: 1 })) };
+    for (const f of withSecondary(t, o).frames) { expect(f.squash).toBeCloseTo(1, 12); expect(f.head).toBeCloseTo(1, 12); }
+  });
+
+  it("stretches in flight, squashes after landing, settles back to 1", () => {
+    const s = withSecondary(jump(), o).frames.map((f) => f.squash);
+    expect(Math.max(...s.slice(4, 11))).toBeGreaterThan(1.02);
+    expect(Math.min(...s.slice(10, 16))).toBeLessThan(0.98);
+    expect(s[s.length - 1]).toBeCloseTo(1, 2);
+    for (const v of s) expect(v >= 0.85 && v <= 1.12).toBe(true);
+  });
+
+  it("the head lags the torso and settles", () => {
+    const f = withSecondary(jump(), o).frames;
+    expect(f[4].head).toBeLessThan(0); // torso turned +10, head's world angle is still behind
+    expect(Math.abs(f[f.length - 1].head)).toBeLessThan(0.5);
+    expect(spring([0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 0.3, 0.5).at(-1)).toBeCloseTo(1, 3);
   });
 });

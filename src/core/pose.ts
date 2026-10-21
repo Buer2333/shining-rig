@@ -11,7 +11,7 @@ export interface Track {
   fps: number;
   channels: string[];
   frames: Pose[];
-  contact?: { L: boolean[]; R: boolean[]; method: string; thresholds: Record<string, number> };
+  contact?: { frames: number[]; method: string; thresholds: Record<string, number> }; // 1 = a foot is on the ground
   calib?: Record<string, unknown>;
   generator?: string;
 }
