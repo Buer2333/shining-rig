@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLimbMesh, rotateAbout, skinLimb, smoothstep } from "../src/core/mesh";
+import { buildLimbMesh, jointAbout, rotateAbout, skinLimb, smoothstep } from "../src/core/mesh";
 import { Clip, easeInOutCubic, sampleClip, trackPose, Track } from "../src/core/pose";
 import { channelsOf, defaultPose, inFront, SpecError, validateSpec } from "../src/core/spec";
 import JUMP from "../src/actions/jump.json";
@@ -98,5 +98,38 @@ describe("mesh skinning", () => {
     expect(L.weights[k][2]).toBe(1);
     expect(xy[k][0]).toBeCloseTo(want[0], 9);
     expect(xy[k][1]).toBeCloseTo(-want[1], 9);
+  });
+
+  it("jointAbout is CSS rotate(deg) scaleY(sy): scale in the joint frame, then rotate", () => {
+    // a point 100 below the pivot, halved, then turned 90 deg clockwise (y down) ends 50 to the left
+    const p = jointAbout([10, 120], [10, 20], 90, 0.5);
+    expect(p[0]).toBeCloseTo(-40, 9);
+    expect(p[1]).toBeCloseTo(20, 9);
+  });
+
+  it("axis y bands: weights depend on y only (legs), and scaled bones skin like nested CSS joints", () => {
+    const leg = { ...s.mesh!.meshL, axis: "y" as const, root: [262, 248] as [number, number], elbow: [272, 266] as [number, number] };
+    const M = buildLimbMesh(s, leg);
+    const byY = new Map<number, string>();
+    M.rest.forEach((p, k) => {
+      const w = JSON.stringify(M.weights[k]);
+      expect(byY.get(p[1]) ?? w).toBe(w);
+      byY.set(p[1], w);
+    });
+    const k = M.weights.findIndex((w) => w[2] === 1);
+    const hip = s.joints.shoulderL.pivot, knee = s.joints.elbowL.pivot;
+    const { xy, out } = collect(M.rest.length);
+    skinLimb(M, hip, knee, 20, -35, out, { sy0: 0.9, sy1: 1.1 });
+    const want = jointAbout(jointAbout(M.rest[k], knee, -35, 1.1), hip, 20, 0.9);
+    expect(xy[k][0]).toBeCloseTo(want[0], 9);
+    expect(xy[k][1]).toBeCloseTo(-want[1], 9);
+  });
+
+  it("body option: body-weighted vertices take the torso's scale back about y", () => {
+    const k = L.weights.findIndex((w) => w[0] === 1);
+    const { xy, out } = collect(L.rest.length);
+    skinLimb(L, s.joints.shoulderL.pivot, s.joints.elbowL.pivot, 30, 10, out, { body: { y: 260, sy: 0.8 } });
+    expect(xy[k][0]).toBeCloseTo(L.rest[k][0], 9);
+    expect(xy[k][1]).toBeCloseTo(-(260 + (L.rest[k][1] - 260) * 0.8), 9);
   });
 });

@@ -72,7 +72,8 @@ def build_spec(cfg, size, scale, joints_px, bbox, caps, gen, source_sha256):
         "rig_type": rig["rig_type"],
         "coord_space": {"size": list(size), "y_down": True, "deg_cw": True},
         "scale": scale,
-        "joints": {k: {"pivot": v, "parent": parent.get(k), **({"mirror_of": mirror_of[k]} if k in mirror_of else {})} for k, v in joints_px.items()},
+        "joints": {k: {"pivot": v, "parent": parent.get(k), **({"mirror_of": mirror_of[k]} if k in mirror_of else {}),
+                       **rig.get("joint_flags", {}).get(k, {})} for k, v in joints_px.items()},  # flags: unscale / level
         "channels": rig["channels"],
         "parts": [{"id": k, "joint": rig["part_joints"].get(k), "bbox": b, "asset": f"{k}.png"} for k, b in bbox.items()],
         "caps": caps,

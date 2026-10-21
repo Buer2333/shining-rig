@@ -17,6 +17,10 @@ export interface JointSpec {
   parent: string | null;
   limits?: [number, number];
   mirror_of?: string;
+  // unscale: cancel the scaleY accumulated by the joints above (a head or arm hung on a torso that foreshortens keeps its
+  // shape while its pivot follows the torso). level: cancel the rotation accumulated above (a foot that stays flat).
+  unscale?: boolean;
+  level?: boolean;
 }
 
 export interface PartSpec {
@@ -35,11 +39,12 @@ export interface CapSpec {
 // A limb drawn as one skinned mesh instead of rigid parts.
 export interface MeshLimbSpec {
   part: string; // part whose image/bbox is the mesh texture
-  bones: [string, string]; // [shoulder joint, elbow joint]
+  bones: [string, string]; // [root joint, middle joint]: shoulder + elbow, or hip + knee
   mirror_x: boolean; // weight bands are given for the left limb; right limb mirrors x -> W - x
-  root: [number, number]; // body -> upper-arm blend band (source px, left-limb coordinates)
-  elbow: [number, number]; // upper-arm -> forearm blend band
+  root: [number, number]; // body -> upper blend band (source px along `axis`; a band given high -> low runs the other way)
+  elbow: [number, number]; // upper -> lower blend band
   step: number; // grid spacing in source px
+  axis?: "x" | "y"; // coordinate the bands are measured on: "x" for arms held out (default), "y" for legs
 }
 
 export type DrawNode =

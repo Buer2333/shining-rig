@@ -17,7 +17,8 @@ export interface Outline { px: number; ink: string; id: string }
 const STAGE: Stage = { bodyFrac: 0.5, feetFrac: 0.873, background: "#f3eee3", shadow: { w: 460, h: 60, dy: 24, color: "#141a4d", opacity: 0.14 } };
 const OUTLINE: Outline = { px: 2, ink: "#140a08", id: "rig2d-outline" };
 
-interface Ctx { spec: RigSpec; pose: Pose; assetBase: string; face?: (box: [number, number, number, number], id: string) => React.ReactNode }
+// acc: rotation (sum) and scaleY (product) of the joints above, for joints flagged level / unscale
+interface Ctx { spec: RigSpec; pose: Pose; assetBase: string; face?: (box: [number, number, number, number], id: string) => React.ReactNode; acc?: { rot: number; sy: number } }
 
 const Draw: React.FC<{ nodes: DrawNode[]; c: Ctx }> = ({ nodes, c }) => {
   const [IW, IH] = c.spec.coord_space.size;
@@ -34,11 +35,16 @@ const Draw: React.FC<{ nodes: DrawNode[]; c: Ctx }> = ({ nodes, c }) => {
           return <div key={i} style={{ position: "absolute", left: k.at[0] - k.r, top: k.at[1] - k.r, width: k.r * 2, height: k.r * 2, borderRadius: "50%", background: k.color }} />;
         }
         if ("joint" in n) {
-          const [x, y] = c.spec.joints[n.joint].pivot, ch = channelsOf(c.spec, n.joint);
-          const deg = ch.rotate ? c.pose[ch.rotate] : 0, sy = ch.scale ? c.pose[ch.scale] : 1;
+          const j = c.spec.joints[n.joint], [x, y] = j.pivot, ch = channelsOf(c.spec, n.joint);
+          const acc = c.acc ?? { rot: 0, sy: 1 };
+          const own = ch.rotate ? c.pose[ch.rotate] : 0, sy = ch.scale ? c.pose[ch.scale] : 1;
+          const deg = j.level ? own - acc.rot : own;
+          // unscale goes before rotate (CSS applies right to left): the parent's scale is undone in the parent's frame
+          const pre = j.unscale && acc.sy !== 1 ? `scaleY(${1 / acc.sy}) ` : "";
+          const next = { rot: acc.rot + deg, sy: (j.unscale ? 1 : acc.sy) * sy };
           return (
-            <div key={i} style={{ position: "absolute", left: 0, top: 0, width: IW, height: IH, transformOrigin: `${x}px ${y}px`, transform: `rotate(${deg}deg) scaleY(${sy})` }}>
-              <Draw nodes={n.children} c={c} />
+            <div key={i} style={{ position: "absolute", left: 0, top: 0, width: IW, height: IH, transformOrigin: `${x}px ${y}px`, transform: `${pre}rotate(${deg}deg) scaleY(${sy})` }}>
+              <Draw nodes={n.children} c={{ ...c, acc: next }} />
             </div>
           );
         }
@@ -46,7 +52,7 @@ const Draw: React.FC<{ nodes: DrawNode[]; c: Ctx }> = ({ nodes, c }) => {
           const g = c.spec.groups[n.slot];
           return (n.when === "front") === inFront(g, c.pose) ? <Draw key={i} nodes={g.children} c={c} /> : null;
         }
-        if ("mesh" in n) return <MeshLimbs key={i} spec={c.spec} ids={n.mesh} pose={c.pose} assetBase={c.assetBase} />;
+        if ("mesh" in n) return <MeshLimbs key={i} spec={c.spec} ids={n.mesh} pose={c.pose} assetBase={c.assetBase} bodySy={c.acc?.sy ?? 1} />;
         if ("face" in n) return c.face && c.spec.face ? <React.Fragment key={i}>{c.face(c.spec.face.box, n.face)}</React.Fragment> : null;
         return null;
       })}
