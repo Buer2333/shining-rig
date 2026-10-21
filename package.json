@@ -1,6 +1,6 @@
 {
   "name": "shining-rig",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "2D character rig for Remotion: cutout parts + mesh-skinned limbs, keyframe clips and pose tracks extracted from video.",
   "license": "MIT",
