@@ -35,7 +35,7 @@ counts and model md5s. Frames past the end hold the last pose.
 ## Character config (input to `cut.py`)
 
 `{character_id, source, cut, rig}`. Everything character-specific lives in `cut` and can be switched off: background
-seeds and threshold, erosion, part and mesh polygons (display coordinates + `display_width`), mirrored parts/joints,
+(flood fill from `seeds` with `thresh`, or `{"method": "alpha", "alpha_gt": 127}` for transparent PNG art), erosion, part and mesh polygons (display coordinates + `display_width`), mirrored parts/joints,
 `protect_regions` (e.g. a chest logo the shoulder cap must not cover), `ball_joints` (`flat_fill.enabled`, sample offset,
 kept top band), `caps` (colour sample points). `rig` is copied into the spec (channels, parents, groups, variants,
 mesh limbs, face, keypoint map).

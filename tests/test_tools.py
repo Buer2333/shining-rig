@@ -115,6 +115,31 @@ def test_cut_two_sizes_and_switches(toy, flat, protect):
     assert rig_lint.lint(spec, str(d / "out")) == []
 
 
+def test_cut_alpha_background_matches_flood(tmp_path):
+    """Transparent-PNG art: background method alpha cuts the same parts as flood fill does on the white version."""
+    toy_image(tmp_path / "toy.png", 512, 768)
+    rgb = Image.open(tmp_path / "toy.png").convert("RGB")
+    white = Image.eval(rgb.convert("L"), lambda v: 0 if v == 255 else 255)  # the toy's background is pure white
+    clear = Image.new("RGBA", rgb.size, (0, 0, 0, 0))
+    clear.paste(rgb, (0, 0), white)
+    clear.save(tmp_path / "clear.png")
+    flood = C.cut(toy_config("toy.png"), str(tmp_path), str(tmp_path / "flood"), stamp=False)
+    cfg = toy_config("clear.png")
+    cfg["cut"]["background"] = {"method": "alpha", "alpha_gt": 127}
+    alpha = C.cut(cfg, str(tmp_path), str(tmp_path / "alpha"), stamp=False)
+    assert [p["bbox"] for p in alpha["parts"]] == [p["bbox"] for p in flood["parts"]]
+    assert alpha["scale"] == flood["scale"]
+    # right side measured instead of mirrored (asymmetric art): no mirror_of, so lint accepts an off-mirror pivot
+    cfg["cut"]["mirror_joints"] = ["elbow", "hip"]
+    cfg["cut"]["joints"]["shoulderR"] = [312, 258]
+    meas = C.cut(cfg, str(tmp_path), str(tmp_path / "meas"), stamp=False)
+    assert "mirror_of" not in meas["joints"]["shoulderR"] and meas["joints"]["elbowR"]["mirror_of"] == "elbowL"
+    assert rig_lint.lint(meas, str(tmp_path / "meas")) == []
+    cfg["source"] = "toy.png"  # no alpha channel -> refuse rather than cut the whole canvas
+    with pytest.raises(SystemExit):
+        C.cut(cfg, str(tmp_path), str(tmp_path / "bad"), stamp=False)
+
+
 def run(*args):
     return subprocess.run([PY, *args], capture_output=True, text=True)
 
